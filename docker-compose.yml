@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  mariadb:
+    image: mariadb:11
+    env_file: .env
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+
+  pets:
+    build: ./pets-service
+    container_name: pixelpets-pets
+    env_file: .env
+    depends_on:
+      mariadb:
+        condition: service_started
+    ports:
+      - "4001:3000"
+    restart: unless-stopped
+
+  gateway:
+    build: ./api-gateway
+    environment:
+      PORT: 3000
+      PETS_URL: http://pets:3000
+    depends_on:
+      - pets
+    ports:
+      - "4000:3000"   # http://localhost:4000/api/pets
+    restart: unless-stopped
+
+volumes:
+  dbdata:

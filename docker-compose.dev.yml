@@ -1,0 +1,24 @@
+services:
+  mariadb:
+    image: mariadb:11
+    env_file: .env
+    volumes:
+      - dbdata:/var/lib/mysql
+    ports:
+      - "3306:3306"
+
+  pets:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./pets-service:/app
+      - /app/node_modules
+    ports:
+      - "4001:3000"
+    command: sh -c "npm install && npx nodemon index.js"
+    env_file: .env
+    restart: unless-stopped
+
+volumes:
+  dbdata:
+

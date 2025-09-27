@@ -1,0 +1,79 @@
+version: "3.9"
+services:
+  mariadb:
+    image: mariadb:11
+    env_file: .env
+    volumes:
+      - dbdata:/var/lib/mysql
+
+  pets:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./pets-service:/app
+      - /app/node_modules
+    ports:
+      - "4001:3000"
+    command: sh -c "npm install && npx nodemon index.js"
+    env_file: .env
+    restart: unless-stopped
+
+  gateway:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./api-gateway:/app
+      - /app/node_modules
+    environment:
+      PORT: 3000
+      PETS_URL: http://pets:3000
+      AI_URL:   http://ai:3000
+    ports:
+      - "4000:3000"   # http://localhost:4000/api/pets
+    command: sh -c "npm install && npx nodemon index.js"
+    depends_on:
+      - pets
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"     # facultatif; utile si tu veux tester depuis l'hôte
+    volumes:
+      - ollama_models:/root/.ollama
+    restart: unless-stopped
+
+  ai:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./ai-service:/app
+      - /app/node_modules
+    environment:
+      PORT: 3000
+      OLLAMA_URL: http://ollama:11434
+      LLM_MODEL: qwen2.5:1.5b-instruct-q4_K_M  
+    ports:
+      - "4002:3000"
+    command: sh -c "npm install && npx nodemon index.js"
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: sh -c "npm install && npm run dev -- --host"
+    ports:
+      - "5173:5173"
+    depends_on:
+      - gateway
+    restart: unless-stopped
+
+volumes:
+  dbdata:
+  ollama_models:
+
